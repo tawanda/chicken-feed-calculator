@@ -32,6 +32,8 @@ class Ingredient:
         # Solver must be solved before this is called
         if self.name == 'Salt':
             return self.solver_num_var.solution_value()
+        if self.name == 'Limestone Grit (Calcium)':
+            return math.ceil(self.solver_num_var.solution_value())
         return round(self.solver_num_var.solution_value())
 
     # create properties for weights of calcium methionine and digestible crude protein
@@ -53,9 +55,10 @@ class Ingredient:
 
     @property
     def result(self):
-        if self.name == 'Salt':
-            return f"{i} : {i.solver_num_var.solution_value():.2f} kg"
-        return f"{i} : {round(i.solver_num_var.solution_value()):.2f} kg"
+        unit = 'kg' if self.weight > 1 else 'g'
+        weight = self.weight if self.weight > 1 else self.weight * 1000
+
+        return f"{i} : {weight:.2f} {unit}"
 
     def __str__(self):
         return f"{self.name} ({self.shona_name}): [DCP={self.digestible_crude_protein}]"
@@ -68,16 +71,19 @@ if __name__ == '__main__':
     # Read your feedbag label. Most chickens need between 0.12% to 0.2% sodium in the diet.
     # If measured as NaCl or “salt,” it should be 0.4-0.6%.
     # https://extension.umaine.edu/livestock/poultry/nutrition-for-chickens/
-    # 0.4 % in feed weight is the recommended allowance, however we are using 0.3% to er on the side of caution
-    target_percentage_salt_required_per_chicken_per_day = 0.003  
+    # 0.4 % in feed weight is the recommended allowance
+    target_percentage_salt_required_per_chicken_per_day = 0.004
 
-    target_percentage_methionine_required_per_chicken_per_day = 0.6  # 0.0009kg per 150g ->  0.60 %. in feed weight
+    # https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7142444/
+    # https://www.ncbi.nlm.nih.gov/pmc/articles/PMC8532918/
+    # #:~:text=The%20National%20Research%20Council%20%5B10,8%20weeks%20of%20age%2C%20respectively.
+    target_percentage_methionine_required_per_chicken_per_day = 0.005  # 0.0009kg per 150g ->  0.5 %. in feed weight
     target_percentage_digestible_crude_protein = 0.20  # 20%
-    total_feed_weight = 20  # kg
+    total_feed_weight = 40  # kg
 
-    other_count = 4
+    other_ingredients_count = 4
     available_weight = 0.5*total_feed_weight
-    average_weight = available_weight / other_count
+    average_weight = available_weight / other_ingredients_count
     upper_limit = 1.5 * average_weight
     lower_limit = 0.5 * average_weight
 
@@ -103,12 +109,12 @@ if __name__ == '__main__':
 
         Ingredient(
             name="Maize", shona_name="Chibage", calcium=0.04/100, methionine=0.0, digestible_crude_protein=7.5/100,
-            salt=0, min_weight=lower_limit, max_weight=upper_limit
+            salt=0, min_weight=lower_limit*2, max_weight=upper_limit
         ),
         Ingredient(
             name="Soybean", shona_name="Soya", calcium=0.25/100, methionine=0.6/100, digestible_crude_protein=44/100,
-            salt=0, min_weight = lower_limit, max_weight=upper_limit
-    ),
+            salt=0, min_weight=lower_limit, max_weight=upper_limit
+        ),
         Ingredient(
             name="Sorghum", shona_name="Mhunga", calcium=0.04/100, methionine=0.09/100, digestible_crude_protein=11/100,
             salt=0, min_weight=lower_limit, max_weight=upper_limit
@@ -147,7 +153,7 @@ if __name__ == '__main__':
         print('================= Solution =================')
         print(f'Solved in {solver.wall_time():.2f} milliseconds in {solver.iterations()} iterations')
         print()
-        print(f'Optimal Protein % = {solver.Objective().Value()/total_feed_weight} 💪')
+        print(f'Optimal Protein % = {solver.Objective().Value()/total_feed_weight:.2f} 💪')
 
         print('Feed Weights:')
         for i in ingredients:
@@ -156,12 +162,12 @@ if __name__ == '__main__':
         print()
         print("Total Feed Weight", sum(i.weight for i in ingredients))
         # total calcium weight
-        print("Total Calcium Weight", sum(i.calcium * i.solver_num_var.solution_value() for i in ingredients))
+        print("Total Calcium Weight", sum(i.calcium * i.weight for i in ingredients))
 
         # total methionine converted to a percentage
         print("Total Methionine Percentage",
               f"{sum(i.methionine * i.solver_num_var.solution_value() for i in ingredients)/total_feed_weight * 100:.2f}"
-              , "target", target_percentage_methionine_required_per_chicken_per_day)
+              , "% target", target_percentage_methionine_required_per_chicken_per_day*100, "%")
 
     else:
         print('The solver could not find an optimal solution.')

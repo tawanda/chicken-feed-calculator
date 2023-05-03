@@ -33,7 +33,7 @@ class Ingredient:
         if self.name == 'Salt':
             return self.solver_num_var.solution_value()
         if self.name == 'Limestone Grit (Calcium)':
-            return math.ceil(self.solver_num_var.solution_value())
+            return self.solver_num_var.solution_value()
         return round(self.solver_num_var.solution_value())
 
     # create properties for weights of calcium methionine and digestible crude protein
